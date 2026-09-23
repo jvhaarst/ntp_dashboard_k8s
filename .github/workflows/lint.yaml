@@ -1,9 +1,10 @@
 name: Lint Helm Chart
 
+# No paths filter: this check is required by the 'main protection' ruleset, so
+# it has to report on every pull request. A filtered check never reports on a
+# PR that misses the filter, which leaves that PR permanently unmergeable.
 on:
   pull_request:
-    paths:
-      - 'ntp-exporters/**'
   workflow_dispatch:
 
 permissions:
