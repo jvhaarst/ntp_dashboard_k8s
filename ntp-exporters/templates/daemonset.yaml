@@ -49,8 +49,8 @@ spec:
           image: "{{ .Values.chronyExporter.image.repository }}:{{ .Values.chronyExporter.image.tag }}"
           imagePullPolicy: {{ .Values.chronyExporter.image.pullPolicy }}
           args:
-            - --chrony.address={{ .Values.chronyExporter.address }}
-            - --web.listen-address=:{{ .Values.chronyExporter.port }}
+            - "--chrony.address={{ .Values.chronyExporter.address }}"
+            - "--web.listen-address=:{{ .Values.chronyExporter.port }}"
             - --{{ if not .Values.chronyExporter.collectors.tracking }}no-{{ end }}collector.tracking
             - --{{ if not .Values.chronyExporter.collectors.sources }}no-{{ end }}collector.sources
             - --{{ if not .Values.chronyExporter.collectors.sourcestats }}no-{{ end }}collector.sourcestats
@@ -99,10 +99,10 @@ spec:
             - python3
             - /app/gpsd_exporter.py
           args:
-            - --hostname={{ .Values.gpsdExporter.gpsdHost }}
-            - --port={{ .Values.gpsdExporter.gpsdPort }}
-            - --exporter-port={{ .Values.gpsdExporter.port }}
-            - --listen-address={{ .Values.gpsdExporter.listenAddress }}
+            - "--hostname={{ .Values.gpsdExporter.gpsdHost }}"
+            - "--port={{ .Values.gpsdExporter.gpsdPort }}"
+            - "--exporter-port={{ .Values.gpsdExporter.port }}"
+            - "--listen-address={{ .Values.gpsdExporter.listenAddress }}"
             {{- if .Values.gpsdExporter.disableSatelliteMonitoring }}
             - --disable-monitor-satellites
             {{- end }}

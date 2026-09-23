@@ -24,4 +24,39 @@ jobs:
         run: helm lint ntp-exporters
 
       - name: Render templates
-        run: helm template ntp-exporters ntp-exporters
+        run: helm template ntp-exporters ntp-exporters > rendered.yaml
+
+      # helm lint does not parse its own output. A value containing a colon can
+      # render as valid-looking YAML that loads as a map instead of a string,
+      # which the API server rejects only at apply time.
+      - name: Check rendered manifests parse as expected
+        run: |
+          python3 -m pip install --quiet pyyaml
+          python3 - <<'EOF'
+          import sys, yaml
+
+          bad = []
+          for doc in yaml.safe_load_all(open("rendered.yaml")):
+              if not doc or doc.get("kind") not in (
+                  "DaemonSet", "Deployment", "StatefulSet", "Job", "CronJob", "Pod"
+              ):
+                  continue
+              spec = doc["spec"]["template"]["spec"]
+              for c in spec.get("initContainers", []) + spec.get("containers", []):
+                  for field in ("command", "args"):
+                      for i, entry in enumerate(c.get(field, [])):
+                          if not isinstance(entry, str):
+                              bad.append(
+                                  f"{doc['kind']}/{doc['metadata']['name']} "
+                                  f"{c['name']}.{field}[{i}] is {type(entry).__name__}, "
+                                  f"not str: {entry!r}"
+                              )
+
+          if bad:
+              print("Rendered manifests have non-string command/args entries:")
+              for b in bad:
+                  print("  " + b)
+              print("Quote the value in the template.")
+              sys.exit(1)
+          print("Rendered manifests OK")
+          EOF
