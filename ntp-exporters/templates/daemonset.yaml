@@ -69,9 +69,18 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
+            {{- if .Values.chronyExporter.socket.enabled }}
+            runAsUser: {{ .Values.chronyExporter.socket.runAsUser }}
+            runAsGroup: {{ .Values.chronyExporter.socket.runAsGroup }}
+            {{- end }}
             capabilities:
               drop:
                 - ALL
+          {{- if .Values.chronyExporter.socket.enabled }}
+          volumeMounts:
+            - name: chrony-socket
+              mountPath: {{ .Values.chronyExporter.socket.hostPath }}
+          {{- end }}
           livenessProbe:
             httpGet:
               path: /metrics
@@ -142,3 +151,10 @@ spec:
           resources:
             {{- toYaml .Values.gpsdExporter.resources | nindent 12 }}
         {{- end }}
+      {{- if and .Values.chronyExporter.enabled .Values.chronyExporter.socket.enabled }}
+      volumes:
+        - name: chrony-socket
+          hostPath:
+            path: {{ .Values.chronyExporter.socket.hostPath }}
+            type: Directory
+      {{- end }}

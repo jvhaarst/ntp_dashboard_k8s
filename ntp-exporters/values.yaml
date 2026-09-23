@@ -31,9 +31,22 @@ chronyExporter:
     pullPolicy: IfNotPresent
   # Host port for the exporter. Under hostNetwork this is a real port on the node.
   port: 9123
-  # chronyd accepts command packets on localhost only; hostNetwork makes this
-  # the host's own chronyd.
-  address: "[::1]:323"
+  # chronyd answers `tracking`, `sources` and `sourcestats` over UDP 323, but
+  # refuses `serverstats` and `clients` there with "501 Not authorised". Those
+  # two only work over the unix command socket, so that is the default.
+  # Use "[::1]:323" instead to talk UDP and give up those two collectors.
+  address: "unix:///run/chrony/chronyd.sock"
+  socket:
+    # Mount the host directory that holds chronyd.sock. Required whenever
+    # address is a unix:// path.
+    enabled: true
+    hostPath: /run/chrony
+    # The directory is mode 750 owned by chronyd's user, so the container has to
+    # run as that user. On Debian it is _chrony, but the ids are allocated when
+    # the package is installed and are NOT the same on every host: check with
+    # `id _chrony` on the node and set these to match.
+    runAsUser: 115
+    runAsGroup: 124
   collectors:
     tracking: true
     sources: true
