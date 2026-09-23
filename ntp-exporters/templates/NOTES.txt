@@ -1,0 +1,23 @@
+{{ include "ntp-exporters.fullname" . }} is installed.
+
+Exporters run on node {{ index .Values.nodeSelector "kubernetes.io/hostname" | default "<nodeSelector>" }} with hostNetwork, so they are reachable on the node itself:
+
+{{- if .Values.chronyExporter.enabled }}
+  chrony_exporter  http://<node>:{{ .Values.chronyExporter.port }}/metrics
+{{- end }}
+{{- if .Values.gpsdExporter.enabled }}
+  gpsd_exporter    http://<node>:{{ .Values.gpsdExporter.port }}/metrics
+{{- end }}
+
+Check that VictoriaMetrics picked the targets up:
+
+  kubectl -n {{ .Release.Namespace }} get vmpodscrape {{ include "ntp-exporters.fullname" . }}
+
+Then query vmsingle for chrony_tracking_last_offset_seconds.
+
+{{- if .Values.chronyExporter.collectors.clients }}
+
+The clients collector saturates at chronyd's clientloglimit. If
+chrony_serverstats_client_log_records_dropped_total is increasing, raise
+clientloglimit in chrony.conf on the host.
+{{- end }}

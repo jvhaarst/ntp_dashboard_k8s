@@ -1,0 +1,3 @@
+.helm-release/
+*.tgz
+.DS_Store

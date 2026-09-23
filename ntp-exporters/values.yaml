@@ -1,0 +1,110 @@
+# Deploys chrony_exporter and gpsd-prometheus-exporter onto the node that runs
+# chronyd and gpsd, plus the VictoriaMetrics scrape config, recording/alerting
+# rules and Grafana dashboards that consume them.
+#
+# Both daemons listen on loopback only, so the pod runs with hostNetwork: true
+# and reaches them at [::1]:323 and localhost:2947 on the host itself.
+
+nameOverride: ""
+fullnameOverride: ""
+
+# Pin to the node that owns the GNSS receiver and the PPS signal.
+nodeSelector:
+  kubernetes.io/hostname: ntp
+
+tolerations:
+  - key: longhorn.io/exclude
+    operator: Equal
+    value: "true"
+    effect: NoSchedule
+
+podAnnotations: {}
+podLabels: {}
+priorityClassName: ""
+imagePullSecrets: []
+
+chronyExporter:
+  enabled: true
+  image:
+    repository: quay.io/superq/chrony-exporter
+    tag: v0.14.0
+    pullPolicy: IfNotPresent
+  # Host port for the exporter. Under hostNetwork this is a real port on the node.
+  port: 9123
+  # chronyd accepts command packets on localhost only; hostNetwork makes this
+  # the host's own chronyd.
+  address: "[::1]:323"
+  collectors:
+    tracking: true
+    sources: true
+    sourcestats: true
+    serverstats: true
+    # Requires chrony >= 4.0. Counts saturate at clientloglimit, so raise that
+    # on the host if the server has many clients.
+    clients: true
+    # Requires the chronyd unix socket, root, and --collector.chmod-socket.
+    # Off by default so the container can stay unprivileged and non-root.
+    sourcesWithNtpdata: false
+  extraArgs: []
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 64Mi
+
+gpsdExporter:
+  enabled: true
+  image:
+    repository: ghcr.io/brendanbank/gpsd-prometheus-exporter
+    tag: "1.1.19"
+    pullPolicy: IfNotPresent
+  port: 9015
+  gpsdHost: localhost
+  gpsdPort: 2947
+  # '::' binds dual-stack, '0.0.0.0' IPv4 only.
+  listenAddress: "::"
+  # Per-satellite series carry the gnssid label, which is what makes
+  # per-constellation (GPS/Galileo/GLONASS/BeiDou) health visible.
+  # Set to true to drop them if cardinality becomes a problem.
+  disableSatelliteMonitoring: false
+  # Needs /dev/pps0 inside the container. chrony's PPS refclock is the
+  # authoritative offset measurement, so this stays off.
+  ppsHistogram: false
+  # Track position scatter from a fixed point: useful antenna-health and
+  # spoofing signal for a stationary receiver. Set lat/lon to the real antenna
+  # position at install time; they are deliberately not committed here.
+  geopoint:
+    enabled: false
+    lat: ""
+    lon: ""
+  extraArgs: []
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      memory: 128Mi
+
+# VMPodScrape for the VictoriaMetrics operator.
+scrape:
+  enabled: true
+  interval: 30s
+  scrapeTimeout: 10s
+
+# VMRule with the clock-error recording rule and alerts.
+rules:
+  enabled: true
+  # Absolute bound on clock accuracy, per the chrony documentation.
+  clockErrorAlertSeconds: 0.001
+  minSatellitesUsed: 4
+  # Refclock that must stay selected for stratum 1.
+  refclockSourceName: PPS
+
+# Dashboards are shipped as ConfigMaps for the Grafana sidecar to pick up.
+dashboards:
+  enabled: true
+  label: grafana_dashboard
+  labelValue: "1"
+  folderAnnotation: grafana_folder
+  folder: NTP

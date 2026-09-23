@@ -1,0 +1,25 @@
+{{- if .Values.scrape.enabled }}
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMPodScrape
+metadata:
+  name: {{ include "ntp-exporters.fullname" . }}
+  labels:
+    {{- include "ntp-exporters.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "ntp-exporters.selectorLabels" . | nindent 6 }}
+  podMetricsEndpoints:
+    {{- if .Values.chronyExporter.enabled }}
+    - port: chrony
+      path: /metrics
+      interval: {{ .Values.scrape.interval }}
+      scrapeTimeout: {{ .Values.scrape.scrapeTimeout }}
+    {{- end }}
+    {{- if .Values.gpsdExporter.enabled }}
+    - port: gpsd
+      path: /metrics
+      interval: {{ .Values.scrape.interval }}
+      scrapeTimeout: {{ .Values.scrape.scrapeTimeout }}
+    {{- end }}
+{{- end }}

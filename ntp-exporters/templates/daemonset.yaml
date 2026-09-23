@@ -1,0 +1,144 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "ntp-exporters.fullname" . }}
+  labels:
+    {{- include "ntp-exporters.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "ntp-exporters.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "ntp-exporters.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      # chronyd and gpsd both listen on loopback only, so the pod has to share
+      # the host's network namespace to reach them.
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+      containers:
+        {{- if .Values.chronyExporter.enabled }}
+        - name: chrony-exporter
+          image: "{{ .Values.chronyExporter.image.repository }}:{{ .Values.chronyExporter.image.tag }}"
+          imagePullPolicy: {{ .Values.chronyExporter.image.pullPolicy }}
+          args:
+            - --chrony.address={{ .Values.chronyExporter.address }}
+            - --web.listen-address=:{{ .Values.chronyExporter.port }}
+            - --{{ if not .Values.chronyExporter.collectors.tracking }}no-{{ end }}collector.tracking
+            - --{{ if not .Values.chronyExporter.collectors.sources }}no-{{ end }}collector.sources
+            - --{{ if not .Values.chronyExporter.collectors.sourcestats }}no-{{ end }}collector.sourcestats
+            - --{{ if not .Values.chronyExporter.collectors.serverstats }}no-{{ end }}collector.serverstats
+            - --{{ if not .Values.chronyExporter.collectors.clients }}no-{{ end }}collector.clients
+            {{- if .Values.chronyExporter.collectors.sourcesWithNtpdata }}
+            - --collector.sources.with-ntpdata
+            {{- end }}
+            {{- with .Values.chronyExporter.extraArgs }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          ports:
+            - name: chrony
+              containerPort: {{ .Values.chronyExporter.port }}
+              protocol: TCP
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: chrony
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: chrony
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          resources:
+            {{- toYaml .Values.chronyExporter.resources | nindent 12 }}
+        {{- end }}
+        {{- if .Values.gpsdExporter.enabled }}
+        - name: gpsd-exporter
+          image: "{{ .Values.gpsdExporter.image.repository }}:{{ .Values.gpsdExporter.image.tag }}"
+          imagePullPolicy: {{ .Values.gpsdExporter.image.pullPolicy }}
+          # The image's default CMD is entrypoint.sh, which builds its arguments
+          # from environment variables and unconditionally passes
+          # --offset-from-geopoint with the coordinates baked into the image.
+          # Call the exporter directly so the flags below are the whole story.
+          command:
+            - python3
+            - /app/gpsd_exporter.py
+          args:
+            - --hostname={{ .Values.gpsdExporter.gpsdHost }}
+            - --port={{ .Values.gpsdExporter.gpsdPort }}
+            - --exporter-port={{ .Values.gpsdExporter.port }}
+            - --listen-address={{ .Values.gpsdExporter.listenAddress }}
+            {{- if .Values.gpsdExporter.disableSatelliteMonitoring }}
+            - --disable-monitor-satellites
+            {{- end }}
+            {{- if .Values.gpsdExporter.ppsHistogram }}
+            - --pps-histogram
+            {{- end }}
+            {{- if .Values.gpsdExporter.geopoint.enabled }}
+            - --offset-from-geopoint
+            - --geopoint-lat={{ required "gpsdExporter.geopoint.lat is required when gpsdExporter.geopoint.enabled is true" .Values.gpsdExporter.geopoint.lat }}
+            - --geopoint-lon={{ required "gpsdExporter.geopoint.lon is required when gpsdExporter.geopoint.enabled is true" .Values.gpsdExporter.geopoint.lon }}
+            {{- end }}
+            {{- with .Values.gpsdExporter.extraArgs }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          ports:
+            - name: gpsd
+              containerPort: {{ .Values.gpsdExporter.port }}
+              protocol: TCP
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: gpsd
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: gpsd
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          resources:
+            {{- toYaml .Values.gpsdExporter.resources | nindent 12 }}
+        {{- end }}

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "packageRules": [
+    {
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "digest",
+        "pin"
+      ],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true
+    },
+    {
+      "matchDepNames": [
+        "quay.io/superq/chrony-exporter"
+      ],
+      "groupName": "chrony-exporter image"
+    },
+    {
+      "matchDepNames": [
+        "ghcr.io/brendanbank/gpsd-prometheus-exporter"
+      ],
+      "groupName": "gpsd-prometheus-exporter image"
+    }
+  ]
+}

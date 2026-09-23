@@ -1,0 +1,87 @@
+{{- if .Values.rules.enabled }}
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMRule
+metadata:
+  name: {{ include "ntp-exporters.fullname" . }}
+  labels:
+    {{- include "ntp-exporters.labels" . | nindent 4 }}
+spec:
+  groups:
+    - name: chrony.recording
+      rules:
+        # Absolute bound on clock accuracy, as documented in the chronyc man page.
+        - record: instance:chrony_clock_error_seconds:abs
+          expr: >-
+            abs(chrony_tracking_last_offset_seconds)
+            +
+            chrony_tracking_root_dispersion_seconds
+            +
+            (0.5 * chrony_tracking_root_delay_seconds)
+
+    - name: chrony.alerts
+      rules:
+        - alert: ChronyExporterDown
+          expr: chrony_up == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "chrony exporter cannot reach chronyd on {{ `{{ $labels.instance }}` }}"
+            description: "chrony_up has been 0 for 5 minutes, so no timekeeping metrics are being collected."
+
+        - alert: ChronyNotStratumOne
+          expr: chrony_tracking_stratum > 1
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ `{{ $labels.instance }}` }} is no longer stratum 1"
+            description: "Stratum is {{ `{{ $value }}` }}, which means the local reference clock is not being used."
+
+        - alert: ChronyClockErrorHigh
+          expr: instance:chrony_clock_error_seconds:abs > {{ .Values.rules.clockErrorAlertSeconds }}
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Clock error bound above {{ .Values.rules.clockErrorAlertSeconds }}s on {{ `{{ $labels.instance }}` }}"
+            description: "Bounded clock error is {{ `{{ $value }}` }}s."
+
+        - alert: ChronyRefclockUnreachable
+          expr: chrony_sources_reachability_ratio{source_name="{{ .Values.rules.refclockSourceName }}"} < 1
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Reference clock {{ .Values.rules.refclockSourceName }} is missing samples on {{ `{{ $labels.instance }}` }}"
+            description: "Reachability ratio is {{ `{{ $value }}` }}; the PPS signal or the receiver may have a problem."
+
+        - alert: ChronyClientLogDropping
+          expr: rate(chrony_serverstats_client_log_records_dropped_total[15m]) > 0
+          for: 30m
+          labels:
+            severity: info
+          annotations:
+            summary: "chronyd is dropping client log records on {{ `{{ $labels.instance }}` }}"
+            description: "clientloglimit is too small for the number of clients, so client statistics undercount. Raise clientloglimit in chrony.conf."
+
+    - name: gnss.alerts
+      rules:
+        - alert: GnssNoFix
+          expr: gpsd_mode < 3
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "GNSS receiver has no 3D fix on {{ `{{ $labels.instance }}` }}"
+            description: "gpsd reports mode {{ `{{ $value }}` }}; check the antenna."
+
+        - alert: GnssFewSatellites
+          expr: gpsd_sat_used < {{ .Values.rules.minSatellitesUsed }}
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Only {{ `{{ $value }}` }} satellites used on {{ `{{ $labels.instance }}` }}"
+            description: "Fewer than {{ .Values.rules.minSatellitesUsed }} satellites in the navigation solution."
+{{- end }}

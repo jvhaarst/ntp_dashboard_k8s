@@ -1,0 +1,19 @@
+apiVersion: v2
+name: ntp-exporters
+description: Prometheus exporters for a chrony/GNSS stratum-1 NTP server, with VictoriaMetrics scrape configuration and Grafana dashboards
+type: application
+version: 0.1.0
+appVersion: "0.14.0"
+keywords:
+  - ntp
+  - chrony
+  - gnss
+  - gpsd
+  - victoriametrics
+home: https://github.com/jvhaarst/ntp_dashboard_k8s
+sources:
+  - https://github.com/jvhaarst/ntp_dashboard_k8s
+  - https://github.com/SuperQ/chrony_exporter
+  - https://github.com/brendanbank/gpsd-prometheus-exporter
+maintainers:
+  - name: jvhaarst
