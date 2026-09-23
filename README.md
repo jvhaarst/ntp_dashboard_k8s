@@ -94,12 +94,35 @@ defaultDashboards:
 
 - **NTP server (chrony + GNSS)** — clock offset and error bound, oscillator
   discipline, per-source offsets and reachability, packets served and dropped,
-  clients, and satellites per constellation.
+  clients, and satellites per constellation. The clock error bound is computed
+  inline, so it needs no recording rule.
 - **GPSD** — the upstream dashboard shipped with gpsd-prometheus-exporter.
 
-## Alerts
+### Panels that stay empty by default
 
-`VMRule` provides the recording rule `instance:chrony_clock_error_seconds:abs`
-and alerts for: exporter down, loss of stratum 1, clock error above threshold,
-refclock unreachable, client log overflow, GNSS fix lost, and too few
-satellites.
+The upstream GPSD dashboard covers two exporter features this chart leaves off:
+
+| Panels | Needs |
+|---|---|
+| Clock offset from PPS, and the three percentile panels | `gpsdExporter.ppsHistogram: true` |
+| x-offset, y-offset and offset in meters to a stationary geo point | `gpsdExporter.geopoint.enabled: true` with real `lat`/`lon` |
+
+Enabling geopoint is worthwhile on a fixed antenna: position scatter is a decent
+antenna-health and spoofing signal, and it needs no extra privilege.
+
+`ppsHistogram` is best left off. It requires `/dev/pps0` inside the container,
+and the upstream README notes that it assumes the PPS signal is perfect and does
+not measure synchronisation accuracy. chrony's PPS refclock already measures
+that properly, and it shows up on the **Source offsets** panel of the other
+dashboard.
+
+## Alerting
+
+`rules.enabled` is `false` by default. The `VMRule` this chart can create needs
+vmalert to evaluate it, and `victoria-metrics-k8s-stack` ships with
+`vmalert.enabled: false`. Set `rules.enabled: true` only if vmalert is running.
+
+When enabled, the `VMRule` provides the recording rule
+`instance:chrony_clock_error_seconds:abs` and alerts for: exporter down, loss of
+stratum 1, clock error above threshold, refclock unreachable, client log
+overflow, GNSS fix lost, and too few satellites.

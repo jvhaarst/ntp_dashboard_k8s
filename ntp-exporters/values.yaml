@@ -106,8 +106,13 @@ scrape:
   scrapeTimeout: 10s
 
 # VMRule with the clock-error recording rule and alerts.
+# Off by default: a VMRule needs vmalert to evaluate it, and the
+# victoria-metrics-k8s-stack ships with `vmalert.enabled: false`. With no
+# evaluator the recording rule never computes and no alert can fire, so the
+# object would just sit there. The dashboard computes the clock error bound
+# inline instead. Turn this on if you run vmalert.
 rules:
-  enabled: true
+  enabled: false
   # Absolute bound on clock accuracy, per the chrony documentation.
   clockErrorAlertSeconds: 0.001
   minSatellitesUsed: 4
