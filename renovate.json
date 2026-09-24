@@ -26,6 +26,30 @@
         "ghcr.io/brendanbank/gpsd-prometheus-exporter"
       ],
       "groupName": "gpsd-prometheus-exporter image"
+    },
+    {
+      "matchDepNames": [
+        "cturra/ntp"
+      ],
+      "groupName": "chronyc helper image"
+    },
+    {
+      "matchDepNames": [
+        "observabilitystack/geoip-api"
+      ],
+      "groupName": "geoip-api image"
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^ntp-exporters/values\\.yaml$/"
+      ],
+      "matchStrings": [
+        "repository:\\s*(?<depName>cturra/ntp)\\s*\\n\\s*tag:\\s*\"(?<currentValue>[^\"]+)\"\\s*\\n\\s*digest:\\s*\"(?<currentDigest>sha256:[a-f0-9]+)\""
+      ],
+      "datasourceTemplate": "docker"
     }
   ]
 }

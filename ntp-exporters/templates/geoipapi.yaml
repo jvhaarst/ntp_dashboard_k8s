@@ -1,0 +1,62 @@
+{{- if .Values.geoipApi.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ntp-exporters.fullname" . }}-geoip
+  labels:
+    {{- include "ntp-exporters.labels" . | nindent 4 }}
+    app.kubernetes.io/component: geoip-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "ntp-exporters.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: geoip-api
+  template:
+    metadata:
+      labels:
+        {{- include "ntp-exporters.podLabels" . | nindent 8 }}
+        app.kubernetes.io/component: geoip-api
+    spec:
+      {{- with .Values.geoipApi.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.geoipApi.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: geoip-api
+          image: "{{ .Values.geoipApi.image.repository }}:{{ .Values.geoipApi.image.tag }}"
+          imagePullPolicy: {{ .Values.geoipApi.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.geoipApi.port }}
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          resources:
+            {{- toYaml .Values.geoipApi.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ntp-exporters.fullname" . }}-geoip
+  labels:
+    {{- include "ntp-exporters.labels" . | nindent 4 }}
+    app.kubernetes.io/component: geoip-api
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "ntp-exporters.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: geoip-api
+  ports:
+    - name: http
+      port: {{ .Values.geoipApi.port }}
+      targetPort: http
+{{- end }}

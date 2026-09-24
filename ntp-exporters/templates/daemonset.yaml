@@ -43,6 +43,9 @@ spec:
         runAsNonRoot: true
         runAsUser: 65534
         runAsGroup: 65534
+        {{- if .Values.clientsExporter.enabled }}
+        fsGroup: {{ .Values.chronyExporter.socket.runAsGroup }}
+        {{- end }}
       containers:
         {{- if .Values.chronyExporter.enabled }}
         - name: chrony-exporter
@@ -151,10 +154,105 @@ spec:
           resources:
             {{- toYaml .Values.gpsdExporter.resources | nindent 12 }}
         {{- end }}
+        {{- if .Values.clientsExporter.enabled }}
+        # chronyc lives here and not in the python image. It writes the client
+        # list to a shared file; the exporter beside it does the rest.
+        - name: chrony-clients-dump
+          image: "{{ .Values.clientsExporter.dump.image.repository }}:{{ .Values.clientsExporter.dump.image.tag }}{{ with .Values.clientsExporter.dump.image.digest }}@{{ . }}{{ end }}"
+          imagePullPolicy: {{ .Values.clientsExporter.dump.image.pullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              while true; do
+                if chronyc -n clients > /var/lib/ntp-clients/.clients.tmp 2>/dev/null; then
+                  mv /var/lib/ntp-clients/.clients.tmp /var/lib/ntp-clients/clients.txt
+                else
+                  echo "chronyc clients failed; keeping the previous dump" >&2
+                  rm -f /var/lib/ntp-clients/.clients.tmp
+                fi
+                sleep {{ .Values.clientsExporter.dumpInterval }}
+              done
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsUser: {{ .Values.chronyExporter.socket.runAsUser }}
+            runAsGroup: {{ .Values.chronyExporter.socket.runAsGroup }}
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: chrony-socket
+              mountPath: {{ .Values.chronyExporter.socket.hostPath }}
+            - name: clients-data
+              mountPath: /var/lib/ntp-clients
+          resources:
+            requests:
+              cpu: 5m
+              memory: 16Mi
+            limits:
+              memory: 48Mi
+        - name: clients-exporter
+          image: "{{ .Values.clientsExporter.image.repository }}:{{ .Values.clientsExporter.image.tag }}"
+          imagePullPolicy: {{ .Values.clientsExporter.image.pullPolicy }}
+          command:
+            - python3
+            - /scripts/clients_exporter.py
+          env:
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+            - name: PYTHONUNBUFFERED
+              value: "1"
+            - name: CLIENTS_FILE
+              value: /var/lib/ntp-clients/clients.txt
+            - name: CLIENTS_PORT
+              value: {{ .Values.clientsExporter.port | quote }}
+            - name: CLIENTS_INTERVAL
+              value: {{ .Values.clientsExporter.interval | quote }}
+            - name: CLIENTS_MAX_LOOKUPS
+              value: {{ .Values.clientsExporter.maxLookupsPerCycle | quote }}
+            - name: CLIENTS_UNKNOWN_LABEL
+              value: {{ .Values.clientsExporter.unknownLabel | quote }}
+            - name: GEOIP_URL
+              value: "http://{{ include "ntp-exporters.fullname" . }}-geoip.{{ .Release.Namespace }}.svc:{{ .Values.geoipApi.port }}"
+          ports:
+            - name: clients
+              containerPort: {{ .Values.clientsExporter.port }}
+              protocol: TCP
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: clients-script
+              mountPath: /scripts
+              readOnly: true
+            - name: clients-data
+              mountPath: /var/lib/ntp-clients
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: clients
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.clientsExporter.resources | nindent 12 }}
+        {{- end }}
       {{- if and .Values.chronyExporter.enabled .Values.chronyExporter.socket.enabled }}
       volumes:
         - name: chrony-socket
           hostPath:
             path: {{ .Values.chronyExporter.socket.hostPath }}
             type: Directory
+      {{- end }}
+      {{- if .Values.clientsExporter.enabled }}
+        - name: clients-script
+          configMap:
+            name: {{ include "ntp-exporters.fullname" . }}-clients-script
+        - name: clients-data
+          emptyDir: {}
       {{- end }}

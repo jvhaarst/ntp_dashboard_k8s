@@ -17,6 +17,13 @@ spec:
       scrapeTimeout: {{ .Values.scrape.scrapeTimeout }}
       {{- include "ntp-exporters.metricRelabelConfigs" . | nindent 6 }}
     {{- end }}
+    {{- if .Values.clientsExporter.enabled }}
+    - port: clients
+      path: /metrics
+      interval: {{ .Values.scrape.interval }}
+      scrapeTimeout: {{ .Values.scrape.scrapeTimeout }}
+      {{- include "ntp-exporters.metricRelabelConfigs" . | nindent 6 }}
+    {{- end }}
     {{- if .Values.gpsdExporter.enabled }}
     - port: gpsd
       path: /metrics

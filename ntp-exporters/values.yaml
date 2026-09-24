@@ -132,6 +132,70 @@ poolExporter:
     limits:
       memory: 96Mi
 
+# Where this server's clients are, by country. chronyd already logs every client
+# that has asked it for the time, so this needs no packet capture and no extra
+# capability on the timekeeping pod: a sidecar writes `chronyc -n clients` to a
+# shared file and the exporter resolves and aggregates it.
+#
+# Client IP addresses are personal data. They are resolved in memory and never
+# exported, logged or written to disk; only per-country counts leave the pod.
+clientsExporter:
+  enabled: false
+  # Reads the dumped client list. Stock python image, standard library only.
+  image:
+    repository: python
+    tag: "3.13-alpine"
+    pullPolicy: IfNotPresent
+  # Supplies chronyc, which the python image does not have. Alpine based and
+  # multi-arch. The publisher tags only `latest`, so it is pinned by digest.
+  # Nested under an `image` key so Renovate's helm-values manager finds it.
+  dump:
+    image:
+      repository: cturra/ntp
+      tag: "latest"
+      digest: "sha256:7224d4e7c7833aabbcb7dd70c46c8a8dcccda365314c6db047b9b10403ace3bc"
+      pullPolicy: IfNotPresent
+  port: 9127
+  interval: 300
+  dumpInterval: 300
+  # Bounds the first fill: 14k clients would otherwise be 14k lookups in one go.
+  maxLookupsPerCycle: 3000
+  unknownLabel: unknown
+  resources:
+    requests:
+      cpu: 10m
+      memory: 48Mi
+    limits:
+      memory: 128Mi
+
+# IP-to-country lookups, served locally so no client address leaves the cluster.
+# The image bundles a recent GeoLite2 database, so there is no MaxMind account,
+# licence key or refresh job to manage.
+geoipApi:
+  enabled: false
+  image:
+    repository: observabilitystack/geoip-api
+    tag: "2026-39"
+    pullPolicy: IfNotPresent
+  port: 8080
+  # This is a GraalVM native image. On a 16 KiB-page kernel it dies immediately
+  # with "Failed to create the main Isolate. (code 24)" -- which is every
+  # Raspberry Pi 5 (-rpi-2712) node here. It must land on a 4 KiB-page node,
+  # which is also where the chrony socket is, so co-locating costs nothing.
+  nodeSelector:
+    kubernetes.io/hostname: ntp
+  tolerations:
+    - key: longhorn.io/exclude
+      operator: Equal
+      value: "true"
+      effect: NoSchedule
+  resources:
+    requests:
+      cpu: 10m
+      memory: 96Mi
+    limits:
+      memory: 192Mi
+
 # VMPodScrape for the VictoriaMetrics operator.
 scrape:
   enabled: true

@@ -1,0 +1,11 @@
+{{- if .Values.clientsExporter.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ntp-exporters.fullname" . }}-clients-script
+  labels:
+    {{- include "ntp-exporters.labels" . | nindent 4 }}
+data:
+  clients_exporter.py: |-
+{{ .Files.Get "files/clients_exporter.py" | indent 4 }}
+{{- end }}

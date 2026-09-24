@@ -12,6 +12,8 @@ dashboards that read them. No custom images are built.
 | [chrony_exporter](https://github.com/SuperQ/chrony_exporter) | `quay.io/superq/chrony-exporter` | 9123 |
 | [gpsd-prometheus-exporter](https://github.com/brendanbank/gpsd-prometheus-exporter) | `ghcr.io/brendanbank/gpsd-prometheus-exporter` | 9015 |
 | pool score exporter (in this chart) | `python` | 9126 |
+| client country exporter (in this chart) | `python` + `cturra/ntp` | 9127 |
+| [geoip-api](https://github.com/observabilitystack/geoip-api) | `observabilitystack/geoip-api` | 8080 |
 
 ## Helm repository
 
@@ -156,6 +158,36 @@ and the upstream README notes that it assumes the PPS signal is perfect and does
 not measure synchronisation accuracy. chrony's PPS refclock already measures
 that properly, and it shows up on the **Source offsets** panel of the other
 dashboard.
+
+### Client countries
+
+chronyd already records every client that has asked it for the time, with a
+request count and a drop count each. That is the same information a passive
+packet capture would give, without needing `CAP_NET_RAW` on the pod that
+disciplines the clock. A sidecar built from an image that carries `chronyc`
+writes `chronyc -n clients` to a shared file; a standard-library Python
+exporter resolves each address to a country and aggregates.
+
+Client IP addresses are personal data. They are resolved in memory and never
+exported, logged or written to disk — only per-country counts leave the pod.
+
+Lookups are served in-cluster by `observabilitystack/geoip-api`, whose image
+bundles a recent GeoLite2 database, so there is no MaxMind account, licence key
+or refresh job. Addresses never leave the cluster.
+
+| Metric | Meaning |
+|---|---|
+| `ntp_clients_total` | Clients in chronyd's log |
+| `ntp_clients_by_country` | Clients per country |
+| `ntp_client_requests_by_country` | NTP requests per country |
+| `ntp_client_drops_by_country` | Rate-limited requests per country |
+| `ntp_clients_without_country` | Addresses the database has no country for |
+| `ntp_clients_geoip_failures_total` | Lookups where the database was unreachable |
+
+**The geoip-api image is a GraalVM native image and will not start on a 16 KiB
+page-size kernel.** Every Raspberry Pi 5 (`-rpi-2712`) node fails immediately
+with `Fatal error: Failed to create the main Isolate. (code 24)`. Pin it with
+`geoipApi.nodeSelector` to a 4 KiB-page node — check with `getconf PAGESIZE`.
 
 ## Alerting
 
