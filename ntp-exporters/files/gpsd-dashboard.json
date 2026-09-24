@@ -785,17 +785,6 @@
           "interval": "",
           "legendFormat": "",
           "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "expr": "histogram_quantile($percentiles, sum(rate(gpsd_pps_histogram_bucket{instance=~\"$instance\"}[$rateinterval])) by (le))",
-          "instant": true,
-          "interval": "",
-          "legendFormat": "Percentile",
-          "refId": "C"
         }
       ],
       "title": "GPS Details",

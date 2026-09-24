@@ -33,3 +33,14 @@ app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 app.kubernetes.io/part-of: ntp-exporters
 {{- end }}
+
+{{/*
+Labels for the pod template only. Deliberately excludes helm.sh/chart and
+app.kubernetes.io/version: both change on every chart release, and anything in
+the pod template is part of the pod spec, so a dashboard-only version bump
+would otherwise roll the exporters and put a gap in the metrics.
+*/}}
+{{- define "ntp-exporters.podLabels" -}}
+{{ include "ntp-exporters.selectorLabels" . }}
+app.kubernetes.io/part-of: ntp-exporters
+{{- end }}
