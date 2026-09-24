@@ -10,7 +10,7 @@ metadata:
     {{ .Values.dashboards.folderAnnotation }}: {{ .Values.dashboards.folder | quote }}
 data:
   ntp-chrony-gnss.json: |-
-{{ .Files.Get "files/chrony-dashboard.json" | indent 4 }}
+{{ .Files.Get "files/chrony-dashboard.json" | replace "__NODE_NAME__" (index .Values.nodeSelector "kubernetes.io/hostname" | default "") | indent 4 }}
 ---
 apiVersion: v1
 kind: ConfigMap

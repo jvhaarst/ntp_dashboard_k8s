@@ -1,0 +1,127 @@
+{{- if .Values.poolExporter.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ntp-exporters.fullname" . }}-ntppool-script
+  labels:
+    {{- include "ntp-exporters.labels" . | nindent 4 }}
+data:
+  ntppool_exporter.py: |-
+{{ .Files.Get "files/ntppool_exporter.py" | indent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ntp-exporters.fullname" . }}-ntppool
+  labels:
+    {{- include "ntp-exporters.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ntppool-exporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "ntp-exporters.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: ntppool-exporter
+  template:
+    metadata:
+      labels:
+        {{- include "ntp-exporters.podLabels" . | nindent 8 }}
+        app.kubernetes.io/component: ntppool-exporter
+      annotations:
+        # The script lives in a ConfigMap, and a ConfigMap change does not
+        # restart a Deployment on its own.
+        checksum/script: {{ .Files.Get "files/ntppool_exporter.py" | sha256sum }}
+    spec:
+      {{- with .Values.poolExporter.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.poolExporter.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+      containers:
+        - name: ntppool-exporter
+          image: "{{ .Values.poolExporter.image.repository }}:{{ .Values.poolExporter.image.tag }}"
+          imagePullPolicy: {{ .Values.poolExporter.image.pullPolicy }}
+          command:
+            - python3
+            - /scripts/ntppool_exporter.py
+          env:
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+            - name: PYTHONUNBUFFERED
+              value: "1"
+            - name: NTPPOOL_SERVERS
+              value: {{ join "," .Values.poolExporter.servers | quote }}
+            - name: NTPPOOL_INTERVAL
+              value: {{ .Values.poolExporter.interval | quote }}
+            - name: NTPPOOL_LIMIT
+              value: {{ .Values.poolExporter.limit | quote }}
+            - name: NTPPOOL_PORT
+              value: {{ .Values.poolExporter.port | quote }}
+            - name: NTPPOOL_PER_MONITOR
+              value: {{ .Values.poolExporter.perMonitor | quote }}
+            - name: NTPPOOL_LOW_SCORE
+              value: {{ .Values.poolExporter.lowScore | quote }}
+            {{- with .Values.poolExporter.userAgent }}
+            - name: NTPPOOL_USER_AGENT
+              value: {{ . | quote }}
+            {{- end }}
+          ports:
+            - name: ntppool
+              containerPort: {{ .Values.poolExporter.port }}
+              protocol: TCP
+          volumeMounts:
+            - name: script
+              mountPath: /scripts
+              readOnly: true
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: ntppool
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: ntppool
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          resources:
+            {{- toYaml .Values.poolExporter.resources | nindent 12 }}
+      volumes:
+        - name: script
+          configMap:
+            name: {{ include "ntp-exporters.fullname" . }}-ntppool-script
+{{- if .Values.scrape.enabled }}
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMPodScrape
+metadata:
+  name: {{ include "ntp-exporters.fullname" . }}-ntppool
+  labels:
+    {{- include "ntp-exporters.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "ntp-exporters.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: ntppool-exporter
+  podMetricsEndpoints:
+    - port: ntppool
+      path: /metrics
+      interval: 60s
+      scrapeTimeout: 15s
+      {{- include "ntp-exporters.metricRelabelConfigs" . | nindent 6 }}
+{{- end }}
+{{- end }}

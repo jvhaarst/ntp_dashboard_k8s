@@ -99,6 +99,39 @@ gpsdExporter:
     limits:
       memory: 128Mi
 
+# Polls the pool.ntp.org score feed. chrony can say how well the local clock is
+# disciplined; only the pool's own monitors can say how the server looks from
+# the outside. Runs as its own Deployment: it talks to the internet, not to the
+# GNSS receiver, so it does not belong on the timekeeping node.
+poolExporter:
+  enabled: false
+  image:
+    repository: python
+    tag: "3.13-alpine"
+    pullPolicy: IfNotPresent
+  port: 9126
+  # Public addresses of this server exactly as registered in the pool. Left
+  # empty on purpose: the address is site-specific and this chart is public.
+  servers: []
+  # The pool rescores a few times an hour, so polling faster achieves nothing
+  # and is impolite. robots.txt allows /scores/ but disallows /monitor/.
+  interval: 300
+  limit: 400
+  # Around 190 monitors report on a well-connected server, which is ~600
+  # churning series. Off by default; the exporter emits aggregates instead.
+  perMonitor: false
+  # Monitors scoring below this are counted in ntppool_monitors_low_total.
+  lowScore: 10
+  userAgent: ""
+  nodeSelector: {}
+  tolerations: []
+  resources:
+    requests:
+      cpu: 10m
+      memory: 48Mi
+    limits:
+      memory: 96Mi
+
 # VMPodScrape for the VictoriaMetrics operator.
 scrape:
   enabled: true

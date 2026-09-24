@@ -11,6 +11,7 @@ dashboards that read them. No custom images are built.
 |---|---|---|
 | [chrony_exporter](https://github.com/SuperQ/chrony_exporter) | `quay.io/superq/chrony-exporter` | 9123 |
 | [gpsd-prometheus-exporter](https://github.com/brendanbank/gpsd-prometheus-exporter) | `ghcr.io/brendanbank/gpsd-prometheus-exporter` | 9015 |
+| pool score exporter (in this chart) | `python` | 9126 |
 
 ## Helm repository
 
@@ -47,6 +48,45 @@ See `ntp-exporters/values.yaml`. The values most likely to need changing:
 | `gpsdExporter.geopoint` | disabled | Set `lat`/`lon` to the real antenna position to enable |
 | `rules.refclockSourceName` | `PPS` | Name of the refclock that must stay reachable |
 | `scrape.dropPodLabel` | `true` | Drops `pod` at scrape time so restarts do not fork every series |
+| `poolExporter.enabled` | `false` | Poll the pool.ntp.org score feed |
+| `poolExporter.servers` | `[]` | Public addresses as registered in the pool |
+| `poolExporter.perMonitor` | `false` | Per-monitor series; ~600 of them, aggregates otherwise |
+
+### Pool score exporter
+
+chrony measures how well the local clock is disciplined. It cannot measure how
+the server looks from the outside. The NTP Pool publishes exactly that, for
+every server in the pool:
+
+```
+https://www.ntppool.org/scores/{ip}/log?limit=400&monitor=*
+```
+
+The feed is public and unauthenticated, in CSV with the columns
+`ts_epoch,ts,offset,step,score,monitor_id,monitor_name,rtt,leap,error`. Around
+190 monitoring stations report on a well-connected server, each with its own
+offset and round-trip time.
+
+A small standard-library Python exporter, shipped in this chart as a ConfigMap
+and run on a stock `python` image, polls that feed every 5 minutes and exports:
+
+| Metric | Meaning |
+|---|---|
+| `ntppool_score` | The pool's aggregate score, max 20 |
+| `ntppool_monitors_total` | Monitoring stations reporting |
+| `ntppool_monitor_score_min` / `_mean` | Worst and mean score across monitors |
+| `ntppool_monitors_low_total` | Monitors below `lowScore` |
+| `ntppool_monitor_offset_seconds{quantile}` | Offset as monitors see it, p05/p50/p95 |
+| `ntppool_monitor_rtt_seconds{quantile}` | Round-trip time, p05/p50/p95 |
+| `ntppool_monitor_abs_offset_max_seconds` | Worst absolute offset |
+| `ntppool_up`, `ntppool_scrape_errors_total` | Feed reachability |
+
+Per-monitor detail (`ntppool_monitor_score`, `_offset_seconds`, `_rtt_seconds`
+labelled by monitor) is available via `perMonitor: true`, at roughly 600 series
+instead of 17.
+
+The pool rescores a few times an hour, so a shorter interval buys nothing.
+`robots.txt` permits `/scores/` and disallows `/monitor/`.
 
 ### Host preparation
 
