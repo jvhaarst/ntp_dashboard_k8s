@@ -38,8 +38,39 @@
         "refresh": 1,
         "includeAll": true,
         "multi": true,
-        "current": {},
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
         "sort": 1
+      },
+      {
+        "name": "gnss_instance",
+        "type": "query",
+        "label": "GNSS instance",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "query": "label_values(gpsd_mode, instance)",
+        "refresh": 1,
+        "includeAll": true,
+        "multi": true,
+        "sort": 1,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        }
       }
     ]
   },
@@ -315,7 +346,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "gpsd_mode{instance=~\"$instance\"}",
+          "expr": "gpsd_mode{instance=~\"$gnss_instance\"}",
           "legendFormat": "",
           "refId": "A",
           "editorMode": "code",
@@ -399,7 +430,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "gpsd_sat_used{instance=~\"$instance\"}",
+          "expr": "gpsd_sat_used{instance=~\"$gnss_instance\"}",
           "legendFormat": "",
           "refId": "A",
           "editorMode": "code",
@@ -1115,7 +1146,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "count by (gnssid) (gpsd_used{instance=~\"$instance\"})",
+          "expr": "count by (gnssid) (gpsd_used{instance=~\"$gnss_instance\"})",
           "legendFormat": "{{gnssid}}",
           "refId": "A",
           "editorMode": "code",
@@ -1126,7 +1157,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "gpsd_sat_seen{instance=~\"$instance\"}",
+          "expr": "gpsd_sat_seen{instance=~\"$gnss_instance\"}",
           "legendFormat": "seen (total)",
           "refId": "B",
           "editorMode": "code",
@@ -1137,7 +1168,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "gpsd_sat_used{instance=~\"$instance\"}",
+          "expr": "gpsd_sat_used{instance=~\"$gnss_instance\"}",
           "legendFormat": "used (total)",
           "refId": "C",
           "editorMode": "code",
