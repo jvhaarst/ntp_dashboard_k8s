@@ -104,6 +104,12 @@ scrape:
   enabled: true
   interval: 30s
   scrapeTimeout: 10s
+  # Drop the pod label at scrape time. The pod name is part of a series'
+  # identity, so every exporter restart forks every series: graphs break at the
+  # restart, palette-classic reassigns colours because series indices shift, and
+  # cardinality grows by a full set each time. This DaemonSet pins one pod to
+  # one node, so the pod name says nothing that instance, job and node do not.
+  dropPodLabel: true
 
 # VMRule with the clock-error recording rule and alerts.
 # Off by default: a VMRule needs vmalert to evaluate it, and the

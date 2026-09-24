@@ -44,3 +44,11 @@ would otherwise roll the exporters and put a gap in the metrics.
 {{ include "ntp-exporters.selectorLabels" . }}
 app.kubernetes.io/part-of: ntp-exporters
 {{- end }}
+
+{{- define "ntp-exporters.metricRelabelConfigs" -}}
+{{- if .Values.scrape.dropPodLabel }}
+metricRelabelConfigs:
+  - action: labeldrop
+    regex: pod
+{{- end }}
+{{- end }}

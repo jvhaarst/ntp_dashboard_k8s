@@ -46,6 +46,7 @@ See `ntp-exporters/values.yaml`. The values most likely to need changing:
 | `gpsdExporter.disableSatelliteMonitoring` | `false` | Per-satellite series carry the `gnssid` label |
 | `gpsdExporter.geopoint` | disabled | Set `lat`/`lon` to the real antenna position to enable |
 | `rules.refclockSourceName` | `PPS` | Name of the refclock that must stay reachable |
+| `scrape.dropPodLabel` | `true` | Drops `pod` at scrape time so restarts do not fork every series |
 
 ### Host preparation
 
