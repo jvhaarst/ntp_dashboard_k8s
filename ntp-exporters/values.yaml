@@ -144,7 +144,7 @@ clientsExporter:
   # Reads the dumped client list. Stock python image, standard library only.
   image:
     repository: python
-    tag: "3.13-alpine"
+    tag: "3.14-alpine"
     pullPolicy: IfNotPresent
   # Supplies chronyc, which the python image does not have. Alpine based and
   # multi-arch. The publisher tags only `latest`, so it is pinned by digest.
