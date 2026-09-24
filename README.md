@@ -184,6 +184,12 @@ or refresh job. Addresses never leave the cluster.
 | `ntp_clients_without_country` | Addresses the database has no country for |
 | `ntp_clients_geoip_failures_total` | Lookups where the database was unreachable |
 
+Both geomaps use the `osm-standard` basemap. Grafana's built-in default is
+CARTO, whose tile service now requires an API key and shows a warning in the
+panel; OpenStreetMap needs neither key nor account. Tiles are fetched by the
+viewer's browser, not by the cluster. Set `geomap.default_baselayer_config` in
+`grafana.ini` if you would rather pin this instance-wide.
+
 **The geoip-api image is a GraalVM native image and will not start on a 16 KiB
 page-size kernel.** Every Raspberry Pi 5 (`-rpi-2712`) node fails immediately
 with `Fatal error: Failed to create the main Isolate. (code 24)`. Pin it with
