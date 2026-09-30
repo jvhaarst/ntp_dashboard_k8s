@@ -212,7 +212,13 @@ geoipApi:
 scrape:
   enabled: true
   interval: 30s
-  scrapeTimeout: 10s
+  # 25s, not the usual 10s. A scrape of chrony_exporter normally takes ~30ms,
+  # but chronyd occasionally loses a reply on its unix command socket and the
+  # exporter retries with a 1s/2s/4s/8s backoff. The tail of that chain passed
+  # 10s about seven times an hour on a busy pool server, and each one discarded
+  # the whole scrape. The timeout only engages on a stalled scrape, so a
+  # generous value costs nothing on the normal path.
+  scrapeTimeout: 25s
   # Drop the pod label at scrape time. The pod name is part of a series'
   # identity, so every exporter restart forks every series: graphs break at the
   # restart, palette-classic reassigns colours because series indices shift, and

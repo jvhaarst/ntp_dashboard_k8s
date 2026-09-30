@@ -238,6 +238,17 @@ page-size kernel.** Every Raspberry Pi 5 (`-rpi-2712`) node fails immediately
 with `Fatal error: Failed to create the main Isolate. (code 24)`. Pin it with
 `geoipApi.nodeSelector` to a 4 KiB-page node — check with `getconf PAGESIZE`.
 
+### Scrape timeout
+
+`scrape.scrapeTimeout` is `25s` rather than the usual `10s`. A chrony_exporter
+scrape normally takes about 30ms, but chronyd occasionally loses a reply on its
+unix command socket — it is a datagram socket, so the loss is silent — and the
+exporter retries with a 1s/2s/4s/8s backoff. On a busy pool server the tail of
+that chain crossed 10s roughly seven times an hour, and vmagent discarded each
+of those scrapes: `up` stayed at 120 samples an hour while only 113 were `up=1`.
+The timeout only engages on a stalled scrape, so the larger value costs nothing
+on the normal path.
+
 ## Alerting
 
 `rules.enabled` is `false` by default. The `VMRule` this chart can create needs
