@@ -54,7 +54,19 @@ chronyExporter:
     serverstats: true
     # Requires chrony >= 4.0. Counts saturate at clientloglimit, so raise that
     # on the host if the server has many clients.
-    clients: true
+    #
+    # OFF by default, and it should stay off on any server in the NTP pool.
+    # This collector walks the whole chrony client log on every scrape. On
+    # ntp.vanhaarst.net the log grew from 1,771 entries to 100,563 in six days
+    # after joining the pool; at roughly 95k the scrape stopped fitting in the
+    # probe timeout and the container crash-looped, taking tracking, sources and
+    # serverstats down with it 58% of the time.
+    #
+    # clientsExporter below covers the same ground properly: a sidecar dumps
+    # `chronyc -n clients` to a file every 300 s and the exporter serves that
+    # cached file in a few milliseconds, with per-country aggregation on top.
+    # Turn this on only for a server with few clients and clientsExporter off.
+    clients: false
     # Requires the chronyd unix socket, root, and --collector.chmod-socket.
     # Off by default so the container can stay unprivileged and non-root.
     sourcesWithNtpdata: false

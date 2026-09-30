@@ -84,18 +84,27 @@ spec:
             - name: chrony-socket
               mountPath: {{ .Values.chronyExporter.socket.hostPath }}
           {{- end }}
+          # timeoutSeconds defaults to 1, which is not enough: scraping this
+          # exporter costs real work on a busy server, and a probe timeout kills
+          # the container rather than just marking it unready. A public pool
+          # server with 100k client-log entries and collector.clients on took
+          # more than a second and crash-looped every 90 seconds.
           livenessProbe:
             httpGet:
               path: /metrics
               port: chrony
             initialDelaySeconds: 10
             periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
           readinessProbe:
             httpGet:
               path: /metrics
               port: chrony
             initialDelaySeconds: 5
             periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 5
           resources:
             {{- toYaml .Values.chronyExporter.resources | nindent 12 }}
         {{- end }}
@@ -145,12 +154,16 @@ spec:
               port: gpsd
             initialDelaySeconds: 15
             periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
           readinessProbe:
             httpGet:
               path: /metrics
               port: gpsd
             initialDelaySeconds: 10
             periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 5
           resources:
             {{- toYaml .Values.gpsdExporter.resources | nindent 12 }}
         {{- end }}
@@ -239,6 +252,8 @@ spec:
               port: clients
             initialDelaySeconds: 10
             periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 5
           resources:
             {{- toYaml .Values.clientsExporter.resources | nindent 12 }}
         {{- end }}

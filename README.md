@@ -45,7 +45,7 @@ See `ntp-exporters/values.yaml`. The values most likely to need changing:
 |---|---|---|
 | `nodeSelector` | `kubernetes.io/hostname: ntp` | The node with the GNSS receiver |
 | `tolerations` | `longhorn.io/exclude` | Match the taints on that node |
-| `chronyExporter.collectors.clients` | `true` | Needs chrony >= 4.0 |
+| `chronyExporter.collectors.clients` | `false` | Needs chrony >= 4.0. Walks the whole client log on every scrape — leave it off on a pool server and use `clientsExporter` instead |
 | `gpsdExporter.disableSatelliteMonitoring` | `false` | Per-satellite series carry the `gnssid` label |
 | `gpsdExporter.geopoint` | disabled | Set `lat`/`lon` to the real antenna position to enable |
 | `rules.refclockSourceName` | `PPS` | Name of the refclock that must stay reachable |
@@ -89,6 +89,26 @@ instead of 17.
 
 The pool rescores a few times an hour, so a shorter interval buys nothing.
 `robots.txt` permits `/scores/` and disallows `/monitor/`.
+
+### Do not enable `collectors.clients` on a pool server
+
+`chrony_exporter`'s clients collector walks chronyd's entire client log on every
+scrape, synchronously. On `ntp.vanhaarst.net` that log grew from 1,771 entries to
+100,563 in the six days after the server joined the NTP pool. At roughly 95,000 the
+scrape stopped completing inside the probe timeout, and since a **liveness** probe
+kills rather than merely unreadies, the container crash-looped every ~90 seconds
+with `exitCode: 2` and nothing in its log. `chrony_tracking_*`, `chrony_sources_*`
+and `chrony_serverstats_*` were then absent 58% of the time — 153 breaks longer
+than two minutes in 24 hours — while the gpsd and clients endpoints stayed at 100%.
+
+`clientsExporter` covers the same ground without the cost: a sidecar writes
+`chronyc -n clients` to a shared file every 300 s and the exporter serves that
+cached file in a few milliseconds, with per-country aggregation on top. Enable
+`collectors.clients` only on a server with few clients and `clientsExporter` off.
+
+Every probe in this chart now sets `timeoutSeconds` and `failureThreshold`
+explicitly. Kubernetes defaults `timeoutSeconds` to **1**, which does not appear in
+the manifest and is easy to miss.
 
 ### Host preparation
 

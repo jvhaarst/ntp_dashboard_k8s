@@ -2,7 +2,7 @@ apiVersion: v2
 name: ntp-exporters
 description: Prometheus exporters for a chrony/GNSS stratum-1 NTP server, with VictoriaMetrics scrape configuration and Grafana dashboards
 type: application
-version: 0.1.0
+version: 0.2.0
 appVersion: "0.14.0"
 keywords:
   - ntp
