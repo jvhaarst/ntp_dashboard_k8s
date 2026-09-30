@@ -238,6 +238,24 @@ page-size kernel.** Every Raspberry Pi 5 (`-rpi-2712`) node fails immediately
 with `Fatal error: Failed to create the main Isolate. (code 24)`. Pin it with
 `geoipApi.nodeSelector` to a 4 KiB-page node — check with `getconf PAGESIZE`.
 
+### The four timeouts are ordered, and the order matters
+
+```
+chrony.timeout (12s)  <  probe timeoutSeconds (15s)  <  scrapeTimeout (25s)  <  interval (30s)
+```
+
+A scrape blocks for as long as `chrony.timeout` allows, so any probe budget
+below it kills the container for a slow chronyd rather than a broken exporter.
+Both mistakes were made here in one day: a 1s probe default against a 1.2s
+collector (339 restarts), then a 20s `chrony.timeout` against a 5s probe
+(3 restarts in 30 minutes). Change one of these and check the others.
+
+`chronyExporter.probes.liveness.enabled` is `false`. Nothing routes to this
+container, so a liveness probe cannot protect a consumer, and every kill it
+performed was of a healthy exporter waiting on chronyd. A genuinely wedged
+exporter shows up as `chrony_up` going stale, which is the signal worth acting
+on. Readiness is kept as a diagnostic.
+
 ### chronyd command-socket stalls
 
 `chronyExporter.timeout` is `20s`, not the exporter's `5s` default. chronyd on a
@@ -258,8 +276,9 @@ The query that detects it:
 count_over_time((chrony_up == 0)[1h:30s])
 ```
 
-20s sits above the observed tail and below `scrape.scrapeTimeout`. It widens the
-net rather than removing the stalls; if one ever exceeds 20s the gap returns.
+12s sits above the observed 10.3s tail and below the 15s probe timeout. It
+widens the net rather than removing the stalls; if one ever exceeds 12s the gap
+returns.
 
 ### Scrape timeout
 

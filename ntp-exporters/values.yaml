@@ -43,7 +43,7 @@ chronyExporter:
   # tracking, sourcestats and serverstats metrics missing entirely -- a scrape
   # of 194 samples instead of 327, which shows up as gaps in the graphs rather
   # than as an error. 20s sits above the observed tail and below scrapeTimeout.
-  timeout: 20s
+  timeout: 12s
   socket:
     # Mount the host directory that holds chronyd.sock. Required whenever
     # address is a unix:// path.
@@ -79,6 +79,13 @@ chronyExporter:
     # Off by default so the container can stay unprivileged and non-root.
     sourcesWithNtpdata: false
   extraArgs: []
+  probes:
+    initialDelaySeconds: 10
+    periodSeconds: 30
+    timeoutSeconds: 15
+    failureThreshold: 5
+    liveness:
+      enabled: false
   resources:
     requests:
       cpu: 10m

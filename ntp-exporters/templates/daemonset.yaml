@@ -90,22 +90,24 @@ spec:
           # the container rather than just marking it unready. A public pool
           # server with 100k client-log entries and collector.clients on took
           # more than a second and crash-looped every 90 seconds.
+          {{- if .Values.chronyExporter.probes.liveness.enabled }}
           livenessProbe:
             httpGet:
               path: /metrics
               port: chrony
-            initialDelaySeconds: 10
-            periodSeconds: 30
-            timeoutSeconds: 5
-            failureThreshold: 5
+            initialDelaySeconds: {{ .Values.chronyExporter.probes.initialDelaySeconds }}
+            periodSeconds: {{ .Values.chronyExporter.probes.periodSeconds }}
+            timeoutSeconds: {{ .Values.chronyExporter.probes.timeoutSeconds }}
+            failureThreshold: {{ .Values.chronyExporter.probes.failureThreshold }}
+          {{- end }}
           readinessProbe:
             httpGet:
               path: /metrics
               port: chrony
-            initialDelaySeconds: 5
-            periodSeconds: 15
-            timeoutSeconds: 5
-            failureThreshold: 5
+            initialDelaySeconds: {{ .Values.chronyExporter.probes.initialDelaySeconds }}
+            periodSeconds: {{ .Values.chronyExporter.probes.periodSeconds }}
+            timeoutSeconds: {{ .Values.chronyExporter.probes.timeoutSeconds }}
+            failureThreshold: {{ .Values.chronyExporter.probes.failureThreshold }}
           resources:
             {{- toYaml .Values.chronyExporter.resources | nindent 12 }}
         {{- end }}
