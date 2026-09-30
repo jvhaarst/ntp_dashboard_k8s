@@ -36,6 +36,14 @@ chronyExporter:
   # two only work over the unix command socket, so that is the default.
   # Use "[::1]:323" instead to talk UDP and give up those two collectors.
   address: "unix:///run/chrony/chronyd.sock"
+  # How long a single request to chronyd may take. The exporter's default is 5s.
+  # chronyd on a busy pool server intermittently stalls its command socket: the
+  # measured tail is 4.05s routinely and 10.05s at worst. Any request past the
+  # limit is abandoned, and the exporter then publishes chrony_up=0 with the
+  # tracking, sourcestats and serverstats metrics missing entirely -- a scrape
+  # of 194 samples instead of 327, which shows up as gaps in the graphs rather
+  # than as an error. 20s sits above the observed tail and below scrapeTimeout.
+  timeout: 20s
   socket:
     # Mount the host directory that holds chronyd.sock. Required whenever
     # address is a unix:// path.

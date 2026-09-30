@@ -53,6 +53,7 @@ spec:
           imagePullPolicy: {{ .Values.chronyExporter.image.pullPolicy }}
           args:
             - "--chrony.address={{ .Values.chronyExporter.address }}"
+            - "--chrony.timeout={{ .Values.chronyExporter.timeout }}"
             - "--web.listen-address=:{{ .Values.chronyExporter.port }}"
             - --{{ if not .Values.chronyExporter.collectors.tracking }}no-{{ end }}collector.tracking
             - --{{ if not .Values.chronyExporter.collectors.sources }}no-{{ end }}collector.sources

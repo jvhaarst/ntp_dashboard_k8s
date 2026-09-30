@@ -238,6 +238,29 @@ page-size kernel.** Every Raspberry Pi 5 (`-rpi-2712`) node fails immediately
 with `Fatal error: Failed to create the main Isolate. (code 24)`. Pin it with
 `geoipApi.nodeSelector` to a 4 KiB-page node — check with `getconf PAGESIZE`.
 
+### chronyd command-socket stalls
+
+`chronyExporter.timeout` is `20s`, not the exporter's `5s` default. chronyd on a
+busy pool server intermittently fails to answer its unix command socket in time:
+the measured tail is 4.05s routinely and 10.05s at worst, most likely because it
+is prioritising NTP packets from ~100k clients.
+
+When a request passes the limit the exporter abandons that collector, publishes
+`chrony_up=0`, and omits the tracking, sourcestats and serverstats metrics —
+a scrape of 194 samples instead of 327. That appears as gaps in the graphs
+rather than as an error, and it is invisible to the obvious checks: both
+`up{endpoint="chrony"}` and `count_over_time(chrony_up[1h])` read 120/120,
+because a failed collection still writes a `chrony_up=0` sample.
+
+The query that detects it:
+
+```
+count_over_time((chrony_up == 0)[1h:30s])
+```
+
+20s sits above the observed tail and below `scrape.scrapeTimeout`. It widens the
+net rather than removing the stalls; if one ever exceeds 20s the gap returns.
+
 ### Scrape timeout
 
 `scrape.scrapeTimeout` is `25s` rather than the usual `10s`. A chrony_exporter
