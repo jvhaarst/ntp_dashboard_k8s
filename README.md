@@ -179,6 +179,25 @@ not measure synchronisation accuracy. chrony's PPS refclock already measures
 that properly, and it shows up on the **Source offsets** panel of the other
 dashboard.
 
+### Client counts: log size is not demand
+
+chronyd's client log keeps every address it has ever answered until
+`clientloglimit` evicts the oldest, so its size measures the log, not the
+server's client base. On `ntp.vanhaarst.net` the two differ by two orders of
+magnitude:
+
+| | |
+|---|---|
+| log entries | 100,606 |
+| active, last 5m | 182 |
+| active, last 1h | 1,075 |
+| active, last 24h | 23,629 |
+
+chronyd records how long ago each client last asked, so the exporter counts
+distinct clients per time window. Use `ntp_clients_active` for demand and
+`ntp_clients_log_entries` only as a saturation indicator against
+`clientloglimit`.
+
 ### Client countries
 
 chronyd already records every client that has asked it for the time, with a
@@ -197,7 +216,11 @@ or refresh job. Addresses never leave the cluster.
 
 | Metric | Meaning |
 |---|---|
-| `ntp_clients_total` | Clients in chronyd's log |
+| `ntp_clients_log_entries` | Entries in chronyd's log — log size, not demand |
+| `ntp_clients_active{window}` | Distinct clients that asked within 5m/15m/1h/6h/24h |
+| `ntp_clients_active_by_country{window}` | The same, per country, for one window |
+| `ntp_clients_never_seen` | Log entries with no NTP request recorded |
+| `ntp_clients_total` | Deprecated alias of `ntp_clients_log_entries` |
 | `ntp_clients_by_country` | Clients per country |
 | `ntp_client_requests_by_country` | NTP requests per country |
 | `ntp_client_drops_by_country` | Rate-limited requests per country |

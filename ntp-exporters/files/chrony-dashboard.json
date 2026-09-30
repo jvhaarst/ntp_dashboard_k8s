@@ -1043,7 +1043,7 @@
     {
       "id": 14,
       "type": "timeseries",
-      "title": "Clients in chronyd's log",
+      "title": "Active clients by recency",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -1060,9 +1060,53 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "chrony_clients_connected{instance=~\"$instance\"}",
-          "legendFormat": "{{protocol}}",
+          "expr": "ntp_clients_active{window=\"5m\"}",
+          "legendFormat": "last 5m",
           "refId": "A",
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "ntp_clients_active{window=\"15m\"}",
+          "legendFormat": "last 15m",
+          "refId": "B",
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "ntp_clients_active{window=\"1h\"}",
+          "legendFormat": "last 1h",
+          "refId": "C",
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "ntp_clients_active{window=\"6h\"}",
+          "legendFormat": "last 6h",
+          "refId": "D",
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "ntp_clients_active{window=\"24h\"}",
+          "legendFormat": "last 24h",
+          "refId": "E",
           "editorMode": "code",
           "range": true
         }
@@ -1084,7 +1128,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "none",
+          "unit": "short",
           "custom": {
             "drawStyle": "line",
             "lineWidth": 1,
@@ -1104,7 +1148,7 @@
         },
         "overrides": []
       },
-      "description": "Saturates at clientloglimit. If the drop rate below is non-zero, this is an undercount."
+      "description": "Distinct clients that actually sent a request inside each window. This is the server's real client base; the log-entry count is a property of clientloglimit, not of demand."
     },
     {
       "id": 15,
@@ -2248,7 +2292,7 @@
     {
       "id": 32,
       "type": "stat",
-      "title": "Clients in chronyd's log",
+      "title": "Client log entries",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -2265,10 +2309,10 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "ntp_clients_total",
+          "expr": "ntp_clients_log_entries",
+          "legendFormat": "",
           "refId": "A",
           "editorMode": "code",
-          "legendFormat": "",
           "range": true
         }
       ],
@@ -2303,7 +2347,7 @@
         },
         "overrides": []
       },
-      "description": "Bounded by clientloglimit. If chrony_serverstats_client_log_records_dropped_total grows, this undercounts."
+      "description": "Size of chronyd's client log, capped by clientloglimit. Grows until it saturates and then stops meaning anything \u2014 watch chrony_serverstats_client_log_records_dropped_total for that. For demand, use the active-client panels."
     },
     {
       "id": 33,
@@ -2487,12 +2531,12 @@
     {
       "id": 36,
       "type": "geomap",
-      "title": "Client requests by country \u2014 world",
+      "title": "Active clients by country \u2014 world",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
-      "description": "Requests counted by chronyd, aggregated per country. Client addresses are resolved in memory and never stored.",
+      "description": "Distinct clients that sent a request in the last hour, by country. Addresses are resolved in memory and never stored.",
       "gridPos": {
         "h": 11,
         "w": 12,
@@ -2507,7 +2551,7 @@
           },
           "refId": "A",
           "editorMode": "code",
-          "expr": "ntp_client_requests_by_country{country!=\"unknown\"}",
+          "expr": "ntp_clients_active_by_country{country!=\"unknown\"}",
           "format": "table",
           "instant": true
         }
@@ -2592,12 +2636,12 @@
     {
       "id": 37,
       "type": "geomap",
-      "title": "Client requests by country \u2014 Europe",
+      "title": "Active clients by country \u2014 Europe",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
-      "description": "Same data, zoomed to Europe where most of this server's clients are.",
+      "description": "Distinct clients that sent a request in the last hour, by country. Addresses are resolved in memory and never stored.",
       "gridPos": {
         "h": 11,
         "w": 12,
@@ -2612,7 +2656,7 @@
           },
           "refId": "A",
           "editorMode": "code",
-          "expr": "ntp_client_requests_by_country{country!=\"unknown\"}",
+          "expr": "ntp_clients_active_by_country{country!=\"unknown\"}",
           "format": "table",
           "instant": true
         }
@@ -2799,6 +2843,128 @@
           "color": {
             "mode": "continuous-BlPu"
           },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 40,
+      "type": "timeseries",
+      "title": "New clients per hour",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Growth of the client log: distinct addresses seen for the first time. Goes flat and meaningless once the log saturates at clientloglimit.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 109
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "delta(ntp_clients_log_entries[1h])",
+          "legendFormat": "new clients/h",
+          "refId": "A",
+          "editorMode": "code",
+          "range": true
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "axisCenteredZero": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 41,
+      "type": "stat",
+      "title": "Active clients (1h)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Distinct clients that asked for the time in the last hour.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 109
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "ntp_clients_active{window=\"1h\"}",
+          "legendFormat": "",
+          "refId": "A",
+          "editorMode": "code",
+          "range": true
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "mappings": [],
           "thresholds": {
             "mode": "absolute",
             "steps": [

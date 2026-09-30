@@ -33,6 +33,33 @@ INTERVAL = int(os.environ.get("CLIENTS_INTERVAL", "300"))
 MAX_LOOKUPS = int(os.environ.get("CLIENTS_MAX_LOOKUPS", "3000"))
 GEOIP_TIMEOUT = float(os.environ.get("GEOIP_TIMEOUT", "2"))
 UNKNOWN = os.environ.get("CLIENTS_UNKNOWN_LABEL", "unknown")
+# The log keeps every client it has ever seen until clientloglimit evicts the
+# oldest, so its size says more about the log than about the server. chronyd
+# records how long ago each client last asked, which is the useful question.
+ACTIVE_WINDOWS = [w.strip() for w in
+                  os.environ.get("CLIENTS_ACTIVE_WINDOWS", "5m,15m,1h,6h,24h").split(",") if w.strip()]
+COUNTRY_WINDOW = os.environ.get("CLIENTS_COUNTRY_WINDOW", "1h")
+
+_UNITS = {"s": 1, "m": 60, "h": 3600, "d": 86400, "w": 604800, "y": 31536000}
+
+
+def duration_seconds(text):
+    """Parse chronyc's compact ages: '312' (seconds), '54m', '65h', '5d'."""
+    text = (text or "").strip()
+    if not text or text == "-":
+        return None
+    if text[-1].isdigit():
+        try:
+            return float(text)
+        except ValueError:
+            return None
+    unit = _UNITS.get(text[-1])
+    if unit is None:
+        return None
+    try:
+        return float(text[:-1]) * unit
+    except ValueError:
+        return None
 
 _lock = threading.Lock()
 _payload = "# no data collected yet\n"
@@ -49,6 +76,8 @@ def parse_clients(path):
     """Yield (ip, ntp_requests, ntp_drops) from `chronyc -n clients` output.
 
     Columns: Hostname NTP Drop Int IntL Last Cmd Drop Int Last
+
+    The sixth column is how long ago the client last sent an NTP request.
     """
     rows = []
     try:
@@ -62,7 +91,8 @@ def parse_clients(path):
                     continue
                 ip = parts[0]
                 try:
-                    rows.append((ip, int(parts[1]), int(parts[2])))
+                    last = duration_seconds(parts[5]) if len(parts) > 5 else None
+                    rows.append((ip, int(parts[1]), int(parts[2]), last))
                 except ValueError:
                     continue
     except FileNotFoundError:
@@ -118,7 +148,7 @@ def collect(geoip):
         return "\n".join(out) + "\n"
 
     looked_up = 0
-    for ip, _req, _drop in rows:
+    for ip, _req, _drop, _last in rows:
         if ip in _country or looked_up >= MAX_LOOKUPS:
             continue
         reached, cc = geoip.country(ip)
@@ -133,18 +163,42 @@ def collect(geoip):
     clients = defaultdict(int)
     requests = defaultdict(int)
     drops = defaultdict(int)
-    for ip, req, drop in rows:
+    active = {w: 0 for w in ACTIVE_WINDOWS}
+    active_cc = defaultdict(int)
+    windows = [(w, duration_seconds(w)) for w in ACTIVE_WINDOWS]
+    country_cutoff = duration_seconds(COUNTRY_WINDOW)
+    never_seen = 0
+    for ip, req, drop, last in rows:
         cc = _country.get(ip, UNKNOWN)
         clients[cc] += 1
         requests[cc] += req
         drops[cc] += drop
+        if last is None:
+            never_seen += 1
+            continue
+        for name, limit in windows:
+            if limit is not None and last <= limit:
+                active[name] += 1
+        if country_cutoff is not None and last <= country_cutoff:
+            active_cc[cc] += 1
 
     out.append("# HELP ntp_clients_by_country Clients in chronyd's log, by country.")
     out.append("# TYPE ntp_clients_by_country gauge")
     out.append("# HELP ntp_client_requests_by_country NTP requests counted by chronyd, by country.")
     out.append("# TYPE ntp_client_requests_by_country gauge")
+    out.append("# HELP ntp_clients_log_entries Entries in chronyd's client log. This is")
+    out.append("# HELP ntp_clients_log_entries the size of the log, not a count of current")
+    out.append("# HELP ntp_clients_log_entries clients: it only grows until clientloglimit evicts.")
+    out.append("# TYPE ntp_clients_log_entries gauge")
+    out.append("# HELP ntp_clients_active Clients that sent an NTP request within the window.")
+    out.append("# TYPE ntp_clients_active gauge")
     out.append("ntp_clients_up 1")
+    out.append("ntp_clients_log_entries {}".format(len(rows)))
+    # Kept under the old name so existing queries do not break.
     out.append("ntp_clients_total {}".format(len(rows)))
+    out.append("ntp_clients_never_seen {}".format(never_seen))
+    for w in ACTIVE_WINDOWS:
+        out.append('ntp_clients_active{{window="{}"}} {}'.format(esc(w), active[w]))
     out.append("ntp_clients_countries_total {}".format(len([c for c in clients if c != UNKNOWN])))
     out.append("ntp_clients_geoip_cache_size {}".format(len(_country)))
     out.append("# HELP ntp_clients_geoip_failures_total Lookups where the database could not be reached.")
@@ -158,6 +212,8 @@ def collect(geoip):
         out.append("ntp_clients_by_country{{{}}} {}".format(lbl, clients[cc]))
         out.append("ntp_client_requests_by_country{{{}}} {}".format(lbl, requests[cc]))
         out.append("ntp_client_drops_by_country{{{}}} {}".format(lbl, drops[cc]))
+        out.append('ntp_clients_active_by_country{{{},window="{}"}} {}'.format(
+            lbl, esc(COUNTRY_WINDOW), active_cc.get(cc, 0)))
     return "\n".join(out) + "\n"
 
 
