@@ -134,7 +134,7 @@ poolExporter:
   enabled: false
   image:
     repository: python
-    tag: "3.14-alpine"
+    tag: "3.15-alpine"
     pullPolicy: IfNotPresent
   port: 9126
   # Public addresses of this server exactly as registered in the pool. Left
@@ -171,7 +171,7 @@ clientsExporter:
   # Reads the dumped client list. Stock python image, standard library only.
   image:
     repository: python
-    tag: "3.14-alpine"
+    tag: "3.15-alpine"
     pullPolicy: IfNotPresent
   # Supplies chronyc, which the python image does not have. Alpine based and
   # multi-arch. The publisher tags only `latest`, so it is pinned by digest.
