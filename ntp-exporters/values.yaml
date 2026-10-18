@@ -27,7 +27,7 @@ chronyExporter:
   enabled: true
   image:
     repository: quay.io/superq/chrony-exporter
-    tag: v0.14.0
+    tag: v0.15.0
     pullPolicy: IfNotPresent
   # Host port for the exporter. Under hostNetwork this is a real port on the node.
   port: 9123
