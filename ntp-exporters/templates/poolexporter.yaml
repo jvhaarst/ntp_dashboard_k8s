@@ -46,7 +46,7 @@ spec:
         runAsGroup: 65534
       containers:
         - name: ntppool-exporter
-          image: "{{ .Values.poolExporter.image.repository }}:{{ .Values.poolExporter.image.tag }}"
+          image: "{{ .Values.poolExporter.image.repository }}:{{ .Values.poolExporter.image.tag }}{{ with .Values.poolExporter.image.digest }}@{{ . }}{{ end }}"
           imagePullPolicy: {{ .Values.poolExporter.image.pullPolicy }}
           command:
             - python3

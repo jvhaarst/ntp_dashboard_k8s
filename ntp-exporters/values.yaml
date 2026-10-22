@@ -135,6 +135,9 @@ poolExporter:
   image:
     repository: python
     tag: "3.15-alpine"
+    # Pinned by digest too: upstream rebuilds this tag in place, so the tag
+    # alone cannot tell Renovate that a new image exists.
+    digest: "sha256:d44b1254cb92329418d164b22b20d86bbd3869d48e80e09e476531a409a728bb"
     pullPolicy: IfNotPresent
   port: 9126
   # Public addresses of this server exactly as registered in the pool. Left
@@ -172,6 +175,9 @@ clientsExporter:
   image:
     repository: python
     tag: "3.15-alpine"
+    # Pinned by digest too: upstream rebuilds this tag in place, so the tag
+    # alone cannot tell Renovate that a new image exists.
+    digest: "sha256:d44b1254cb92329418d164b22b20d86bbd3869d48e80e09e476531a409a728bb"
     pullPolicy: IfNotPresent
   # Supplies chronyc, which the python image does not have. Alpine based and
   # multi-arch. The publisher tags only `latest`, so it is pinned by digest.

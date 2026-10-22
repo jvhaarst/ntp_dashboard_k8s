@@ -38,6 +38,12 @@
         "observabilitystack/geoip-api"
       ],
       "groupName": "geoip-api image"
+    },
+    {
+      "matchDepNames": [
+        "python"
+      ],
+      "groupName": "python exporter image"
     }
   ],
   "customManagers": [
@@ -47,7 +53,7 @@
         "/^ntp-exporters/values\\.yaml$/"
       ],
       "matchStrings": [
-        "repository:\\s*(?<depName>cturra/ntp)\\s*\\n\\s*tag:\\s*\"(?<currentValue>[^\"]+)\"\\s*\\n\\s*digest:\\s*\"(?<currentDigest>sha256:[a-f0-9]+)\""
+        "repository:\\s*(?<depName>\\S+)\\s*\\n\\s*tag:\\s*\"(?<currentValue>[^\"]+)\"\\s*\\n(\\s*#[^\\n]*\\n)*\\s*digest:\\s*\"(?<currentDigest>sha256:[a-f0-9]+)\""
       ],
       "datasourceTemplate": "docker"
     }

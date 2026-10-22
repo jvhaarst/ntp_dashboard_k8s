@@ -210,7 +210,7 @@ spec:
             limits:
               memory: 48Mi
         - name: clients-exporter
-          image: "{{ .Values.clientsExporter.image.repository }}:{{ .Values.clientsExporter.image.tag }}"
+          image: "{{ .Values.clientsExporter.image.repository }}:{{ .Values.clientsExporter.image.tag }}{{ with .Values.clientsExporter.image.digest }}@{{ . }}{{ end }}"
           imagePullPolicy: {{ .Values.clientsExporter.image.pullPolicy }}
           command:
             - python3
