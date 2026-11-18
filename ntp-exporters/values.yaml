@@ -268,3 +268,16 @@ dashboards:
   labelValue: "1"
   folderAnnotation: grafana_folder
   folder: NTP
+  # Which Grafana datasource the panels start on.
+  #
+  # Both dashboards drive every panel from a `datasource` template variable, so the reader can
+  # switch stores from the dropdown at the top. Left empty, the variable has no saved value and
+  # Grafana selects the default datasource, which is the behaviour up to chart 0.7.x.
+  #
+  # Set `datasourceUid` to make a specific store the one a dashboard opens on. The use case is
+  # a second, longer-retention VictoriaMetrics that holds only these series: the clock history
+  # is small enough to keep for a year, while the main store rolls over in weeks. The uid is
+  # Grafana's datasource uid, not its name; `datasourceName` is only the label shown in the
+  # dropdown and falls back to the uid.
+  datasourceUid: ""
+  datasourceName: ""

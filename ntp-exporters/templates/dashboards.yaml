@@ -1,4 +1,14 @@
 {{- if .Values.dashboards.enabled }}
+{{- /*
+  The `datasource` template variable's saved value. Empty uid renders a literal `{}`, which is
+  what Grafana reads as "no saved value, use the default datasource".
+*/ -}}
+{{- $dsUid := .Values.dashboards.datasourceUid | default "" }}
+{{- $dsName := .Values.dashboards.datasourceName | default $dsUid }}
+{{- $dsCurrent := "{}" }}
+{{- if ne $dsUid "" }}
+{{- $dsCurrent = printf "{\"text\": %s, \"value\": %s}" ($dsName | quote) ($dsUid | quote) }}
+{{- end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -10,7 +20,7 @@ metadata:
     {{ .Values.dashboards.folderAnnotation }}: {{ .Values.dashboards.folder | quote }}
 data:
   ntp-chrony-gnss.json: |-
-{{ .Files.Get "files/chrony-dashboard.json" | replace "__NODE_NAME__" (index .Values.nodeSelector "kubernetes.io/hostname" | default "") | indent 4 }}
+{{ .Files.Get "files/chrony-dashboard.json" | replace "__NODE_NAME__" (index .Values.nodeSelector "kubernetes.io/hostname" | default "") | replace "__DATASOURCE_CURRENT__" $dsCurrent | indent 4 }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -23,5 +33,5 @@ metadata:
     {{ .Values.dashboards.folderAnnotation }}: {{ .Values.dashboards.folder | quote }}
 data:
   gpsd.json: |-
-{{ .Files.Get "files/gpsd-dashboard.json" | indent 4 }}
+{{ .Files.Get "files/gpsd-dashboard.json" | replace "__DATASOURCE_CURRENT__" $dsCurrent | indent 4 }}
 {{- end }}

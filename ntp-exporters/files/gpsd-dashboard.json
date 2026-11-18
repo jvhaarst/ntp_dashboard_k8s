@@ -2843,7 +2843,7 @@
         "query": "prometheus",
         "label": "Data source",
         "refresh": 1,
-        "current": {},
+        "current": __DATASOURCE_CURRENT__,
         "hide": 0
       },
       {

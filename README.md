@@ -161,6 +161,41 @@ defaultDashboards:
   inline, so it needs no recording rule.
 - **GPSD** — the upstream dashboard shipped with gpsd-prometheus-exporter.
 
+### Which datasource the panels use
+
+Every panel in both dashboards reads its datasource from a `datasource` template
+variable, so the dropdown at the top of the dashboard switches the whole page
+between stores. By default the variable has no saved value and Grafana picks the
+default datasource.
+
+To make a dashboard open on a specific store instead:
+
+```yaml
+dashboards:
+  datasourceUid: VictoriaMetricsNTP     # Grafana's datasource uid, not its name
+  datasourceName: VictoriaMetrics NTP   # only the dropdown label; defaults to the uid
+```
+
+The reason to want this is retention. These series are small enough to keep for a
+year — roughly 1,600 series at a 30 s scrape — while a cluster-wide store usually
+rolls over in weeks. A second VictoriaMetrics holding only this job costs very
+little and gives the clock record a year of history.
+
+**A second store has to carry more than the chrony and gpsd job.** Filtering it to
+the exporters' own job alone leaves 12 of the chrony dashboard's 41 panels on "No
+data", because they read series from elsewhere:
+
+| Panels | Series | Where they come from |
+|---|---|---|
+| Pool score, Monitors reporting, Monitors scoring low, Worst monitor score, Feed reachable, Pool score over time, Offset as the pool's monitors see it, Round-trip time from the pool's monitors, Mean monitor score | `ntppool_*` | the pool-score exporter, which this chart scrapes as a **separate job** ending `-ntppool` |
+| Oscillator frequency vs CPU temperature | `node_hwmon_temp_celsius` | node-exporter on the ntp host |
+| UDP datagrams per second | `node_netstat_Udp_{In,Out}Datagrams`, `node_netstat_Udp_NoPorts` | node-exporter on the ntp host |
+| eth0 bandwidth | `node_network_{receive,transmit}_bytes_total` | node-exporter on the ntp host |
+
+The `node_instance` variable also needs `node_uname_info` to resolve the host. All
+of node-exporter is ~4,100 series per host, so a filter worth having names those
+five families rather than the whole job.
+
 ### Panels that stay empty by default
 
 The upstream GPSD dashboard covers two exporter features this chart leaves off:
